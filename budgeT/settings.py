@@ -20,8 +20,7 @@ SECRET_KEY = 'django-insecure-^a)$l7j51&=%%65ciu^**ocw#^sj7!r1=hpze)bm_kym7ddc+j
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
-
+ALLOWED_HOSTS = ['0.0.0.0', 'localhost', '127.0.0.1']
 
 # Application definition
 
@@ -94,11 +93,11 @@ plaid_configuration = Configuration(
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'budget_db',
-        'USER': 'soto2571',
-        'PASSWORD': '123456789',
-        'HOST': 'localhost',  # or the remote host
-        'PORT': '5432',
+        'NAME': env('DB_NAME'),
+        'USER': env('DB_USER'),
+        'PASSWORD': env('DB_PASSWORD'),
+        'HOST': env('DB_HOST'),
+        'PORT': env('DB_PORT'),
     }
 }
 
