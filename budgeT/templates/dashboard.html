@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Simple Budget App</title>
+  <script src="https://cdn.plaid.com/link/v2/stable/link-initialize.js"></script>
+</head>
+<body>
+  <h2>Welcome to Budget App</h2>
+
+  {% if not email %}
+    <form method="POST" action="/">
+      {% csrf_token %}
+      <input type="email" name="email" placeholder="Enter your email" required>
+      <button type="submit">Start</button>
+    </form>
+  {% else %}
+    <p>Logged in as: {{ email }}</p>
+
+    {% if not token %}
+      <button id="link-button">Connect Bank</button>
+
+      <script>
+        var handler = Plaid.create({
+          token: "{{ link_token }}",
+          onSuccess: function(public_token, metadata) {
+            fetch("/exchange_public_token/", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ public_token: public_token })
+            }).then(() => location.reload());
+          }
+        });
+        document.getElementById("link-button").onclick = function() {
+          handler.open();
+        };
+      </script>
+    {% else %}
+      <h3>Your Transactions (Last 30 Days)</h3>
+      <ul>
+        {% for t in transactions %}
+          <li>{{ t.date }} — {{ t.name }} — ${{ t.amount }}</li>
+        {% endfor %}
+      </ul>
+    {% endif %}
+  {% endif %}
+</body>
+</html>
