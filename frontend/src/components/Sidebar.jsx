@@ -12,31 +12,30 @@ export default function Sidebar() {
   ];
 
   return (
-    <aside className="w-72 bg-gray-900 text-white p-8 flex flex-col h-screen shadow-lg">
-      {/* App Title */}
-      <h1 className="text-3xl font-extrabold text-blue-400 mb-10 text-center tracking-wide">
-        BudgeT
-      </h1>
-
-      {/* Navigation */}
-      <nav className="flex-1 space-y-4">
-        {menuItems.map((item) => (
-          <Link
-            key={item.name}
-            to={item.path}
-            className="block text-gray-300 hover:text-blue-400 transition font-medium px-2 py-1 rounded hover:bg-gray-800"
-          >
-            {item.name}
-          </Link>
-        ))}
+    <aside className="w-64 bg-gray-800 h-screen p-6 flex flex-col">
+      <h1 className="text-2xl font-bold text-white mb-6">BudgeT</h1>
+      <nav className="flex-1">
+        <ul className="space-y-2">
+          {menuItems.map((item) => (
+            <li key={item.name}>
+              <Link
+                to={item.path}
+                className="block py-2 px-4 text-gray-300 hover:bg-gray-700 rounded transition-colors"
+              >
+                {item.name}
+              </Link>
+            </li>
+          ))}
+        </ul>
       </nav>
-
-      {/* Bottom Buttons */}
-      <div className="mt-auto space-y-4">
-        <button className="w-full px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg transition font-semibold">
-          Login
-        </button>
-        <button className="w-full px-4 py-2 bg-red-500 hover:bg-red-400 text-white rounded-lg transition font-semibold">
+      <div className="mt-auto">
+        <button
+          onClick={() => {
+            localStorage.removeItem("token");
+            window.location.href = "/login";
+          }}
+          className="w-full py-2 text-white bg-red-600 rounded hover:bg-red-700"
+        >
           Logout
         </button>
       </div>
