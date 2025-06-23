@@ -1,3 +1,5 @@
+from plaid.configuration import Configuration
+from plaid.api_client import ApiClient
 from pathlib import Path
 import environ
 import os
@@ -33,11 +35,14 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'budgeT',  # Your app name
+    'rest_framework',
+    'corsheaders',
 ]
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
+    'corsheaders.middleware.CorsMiddleware',  # Should be before CommonMiddleware
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
@@ -64,24 +69,20 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'budgeT.wsgi.application'
 
-from plaid.configuration import Configuration
 
-# Read Plaid environment variables
-PLAID_CLIENT_ID = env("PLAID_CLIENT_ID")
-PLAID_SECRET = env("PLAID_SECRET")
-PLAID_ENV = env("PLAID_ENV", default="sandbox")
+# Plaid API credentials - Your credentials appear to be incomplete or invalid
+# The client ID shown in your settings looks like it might be missing a character
+PLAID_CLIENT_ID = '684f0a04e8ae2f00252e87d0'  # Make sure this is complete
+PLAID_SECRET = '42a96e0900d2e295198cb9a0199d3b'  # This appears incomplete
 
-# Plaid host map
-host_map = {
-    "sandbox": "https://sandbox.plaid.com",
-    "development": "https://development.plaid.com",
-    "production": "https://production.plaid.com"
-}
+# Environment settings
+PLAID_ENV = 'sandbox'  # 'sandbox', 'development', or 'production'
 
-# Create Plaid Configuration object
-plaid_configuration = Configuration(
-    host=host_map[PLAID_ENV],
+# Create Plaid Configuration object - Let's fix the format
+PLAID_CONFIGURATION = Configuration(
+    host=f'https://{PLAID_ENV}.plaid.com',
     api_key={
+        # The keys should be 'clientId' and 'secret', not 'client_id' and 'secret'
         "clientId": PLAID_CLIENT_ID,
         "secret": PLAID_SECRET,
     }
@@ -94,10 +95,10 @@ plaid_configuration = Configuration(
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'budget_db',
-        'USER': 'soto2571',
-        'PASSWORD': '123456789',
-        'HOST': 'localhost',  # or the remote host
+        'NAME': 'budget_new',
+        'USER': 'cristian',
+        'PASSWORD': '4268',
+        'HOST': 'localhost',
         'PORT': '5432',
     }
 }
@@ -145,5 +146,17 @@ STATIC_URL = 'static/'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 
-# Expose the Plaid configuration to the rest of the project
-PLAID_CONFIGURATION = plaid_configuration
+# CORS settings
+CORS_ALLOW_ALL_ORIGINS = True
+
+# For production, specify allowed origins
+# CORS_ALLOWED_ORIGINS = [
+#     "http://localhost:5173",
+#     "https://yourfrontenddomain.com",
+# ]
+
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+    ),
+}

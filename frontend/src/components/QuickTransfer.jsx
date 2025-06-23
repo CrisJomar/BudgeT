@@ -1,6 +1,19 @@
 import React from "react";
+import { usePlaidLink } from "react-plaid-link";
+import axios from "axios";
 
 export default function QuickTransfer() {
+  const { open, ready } = usePlaidLink({
+    token: "YOUR_LINK_TOKEN_FROM_BACKEND",
+    onSuccess: (publicToken) => {
+      // Send the public token to the backend
+      axios.post("/api/exchange-token", { publicToken });
+    },
+    onExit: (error) => {
+      console.error("Plaid Link exited:", error);
+    },
+  });
+
   return (
     <div className="bg-white rounded-lg shadow p-6">
       <h2 className="text-xl font-semibold mb-4">Quick Transfer</h2>
@@ -40,6 +53,13 @@ export default function QuickTransfer() {
           Transfer Now
         </button>
       </form>
+      <button
+        onClick={() => open()}
+        disabled={!ready}
+        className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition mt-4"
+      >
+        Connect Account
+      </button>
     </div>
   );
 }
