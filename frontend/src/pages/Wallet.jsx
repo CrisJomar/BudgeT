@@ -20,29 +20,59 @@ export default function Wallet() {
     fetchWalletData();
   }, []);
 
+  // Update your fetchWalletData function with more debugging
   const fetchWalletData = async () => {
     try {
       setLoading(true);
+      console.log("Fetching wallet data...");
 
-      // Fetch accounts and transactions in parallel
       const [accountsResponse, transactionsResponse] = await Promise.all([
         apiClient.get("/api/accounts/"),
         apiClient.get("/api/transactions/"),
       ]);
 
-      const accounts = accountsResponse.data;
+      console.log("Raw account data:", accountsResponse.data);
+
+      // Add mock balances if they don't exist
+      const accounts = accountsResponse.data.map((account, index) => {
+        console.log(`Account ${index}:`, account);
+
+        // Add mock balance regardless of current value to test
+        const mockBalance = 1000 * (index + 1) + Math.random() * 500;
+        const enhancedAccount = {
+          ...account,
+          current_balance: mockBalance.toFixed(2),
+          available_balance: (mockBalance * 0.95).toFixed(2),
+        };
+
+        console.log(`Enhanced account ${index}:`, enhancedAccount);
+        return enhancedAccount;
+      });
+
+      console.log("Enhanced accounts:", accounts);
+
       const transactions = transactionsResponse.data;
 
-      // Calculate total balance from all accounts
-      const totalBalance = accounts.reduce(
-        (sum, account) => sum + (account.balance || 0),
-        0
-      );
+      // Calculate total balance
+      const totalBalance = accounts.reduce((sum, account) => {
+        const balance = parseFloat(account.current_balance) || 0;
+        console.log(`Adding balance for account ${account.id}: ${balance}`);
+        return sum + balance;
+      }, 0);
 
+      console.log("Total balance calculated:", totalBalance);
+
+      // Set state with a callback to confirm it was updated
       setWalletData({
         accounts,
         totalBalance,
         transactions,
+      });
+
+      console.log("State updated with:", {
+        accountCount: accounts.length,
+        totalBalance,
+        transactionCount: transactions.length,
       });
 
       setLoading(false);
@@ -53,15 +83,30 @@ export default function Wallet() {
     }
   };
 
+  // Add useEffect to monitor state changes
+  useEffect(() => {
+    console.log("walletData updated:", walletData);
+  }, [walletData]);
+
+  // Add this debugging effect
+  useEffect(() => {
+    console.log("Current view:", view);
+  }, [view]);
+
   // Chart data for account balance distribution
   const chartData = {
     labels: walletData.accounts.map(
-      (account) => account.name || `Account ending in ${account.mask || "****"}`
+      (account) =>
+        account.name ||
+        account.account_name ||
+        `Account ending in ${account.mask || "****"}`
     ),
     datasets: [
       {
         label: "Balance",
-        data: walletData.accounts.map((account) => account.balance || 0),
+        data: walletData.accounts.map(
+          (account) => parseFloat(account.current_balance) || 0
+        ),
         backgroundColor: [
           "rgba(54, 162, 235, 0.6)",
           "rgba(255, 99, 132, 0.6)",
@@ -151,10 +196,10 @@ export default function Wallet() {
           <div className="bg-white rounded-lg shadow-md p-6 mb-6">
             <h2 className="text-xl font-semibold mb-2">Total Balance</h2>
             <p className="text-3xl font-bold text-blue-600">
-              ${walletData.totalBalance.toFixed(2)}
+              ${(walletData.totalBalance || 0).toFixed(2)}
             </p>
             <p className="text-sm text-gray-500 mt-1">
-              Across {walletData.accounts.length} accounts
+              Across {walletData.accounts?.length || 0} accounts
             </p>
           </div>
 
@@ -197,7 +242,7 @@ export default function Wallet() {
                     >
                       <div>
                         <p className="font-medium">
-                          {account.name || "Account"}
+                          {account.name || account.account_name || "Account"}
                         </p>
                         <p className="text-sm text-gray-500">
                           {account.account_type || "Bank Account"} ••••{" "}
@@ -205,7 +250,7 @@ export default function Wallet() {
                         </p>
                       </div>
                       <span className="font-semibold">
-                        ${(account.balance || 0).toFixed(2)}
+                        ${(parseFloat(account.current_balance) || 0).toFixed(2)}
                       </span>
                     </li>
                   ))}
@@ -293,10 +338,12 @@ export default function Wallet() {
                       {account.institution_name || "Bank"}
                     </p>
                     <p className="text-sm text-gray-500">
-                      Connected on{" "}
-                      {new Date(
-                        account.created_at || new Date()
-                      ).toLocaleDateString()}
+                      {account.created_at &&
+                      !isNaN(new Date(account.created_at).getTime())
+                        ? `Connected on ${new Date(
+                            account.created_at
+                          ).toLocaleDateString()}`
+                        : "Recently connected"}
                     </p>
                   </div>
                   <button className="text-red-500 hover:text-red-700 text-sm">

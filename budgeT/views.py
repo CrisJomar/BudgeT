@@ -16,12 +16,11 @@ from plaid.model.transactions_get_request import TransactionsGetRequest
 from plaid.model.transactions_get_request_options import TransactionsGetRequestOptions
 from datetime import datetime, timedelta
 import uuid
-from rest_framework import viewsets, status
+from rest_framework import serializers, status, viewsets
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
-from .models import PlaidAccount, Transaction
-# Add PaymentSerializer import
+from .models import PlaidAccount, Transaction, Payment, User
 from .serializers import PlaidAccountSerializer, TransactionSerializer, PaymentSerializer
 from django.contrib.auth.models import User
 import plaid
@@ -187,6 +186,63 @@ def sync_transactions(request):
     except Exception as e:
         traceback.print_exc()
         print(f"Global error in sync_transactions: {str(e)}")
+        return Response({"error": str(e)}, status=500)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def refresh_account_balances(request):
+    try:
+        # Get all connected accounts for this user
+        accounts = PlaidAccount.objects.filter(user=request.user)
+
+        if not accounts:
+            return Response({"error": "No connected accounts found"}, status=404)
+
+        updated_accounts = 0
+
+        for account in accounts:
+            try:
+                # Create API client for each request
+                api_client = ApiClient(settings.PLAID_CONFIGURATION)
+                client = plaid_api.PlaidApi(api_client)
+
+                # Get current account info including balances
+                from plaid.model.accounts_get_request import AccountsGetRequest
+
+                accounts_request = AccountsGetRequest(
+                    access_token=account.access_token
+                )
+
+                accounts_response = client.accounts_get(accounts_request)
+
+                # Update each account with balance information
+                for plaid_account in accounts_response.accounts:
+                    # Find matching account by account_id
+                    if hasattr(account, 'plaid_account_id') and account.plaid_account_id == plaid_account.account_id:
+                        # Update the balance information
+                        account.current_balance = plaid_account.balances.current
+                        account.available_balance = plaid_account.balances.available
+                        account.limit = plaid_account.balances.limit if plaid_account.balances.limit else 0
+                        account.last_synced = datetime.now()
+                        account.save()
+                        updated_accounts += 1
+                        break
+
+            except Exception as e:
+                print(
+                    f"Error updating balance for account {account.id}: {str(e)}")
+                traceback.print_exc()
+                # Continue with next account
+                continue
+
+        return Response({
+            "success": True,
+            "message": f"Updated balances for {updated_accounts} accounts"
+        })
+
+    except Exception as e:
+        traceback.print_exc()
         return Response({"error": str(e)}, status=500)
 
 
@@ -388,22 +444,23 @@ def payment_list(request):
     """
     List all payments or create a new payment.
     """
+    print(">>> Payment list view called by user:", request.user.username)
+    print(">>> Auth header:", request.headers.get('Authorization'))
+
     if request.method == 'GET':
         try:
-            print("Attempting to fetch payments for user:", request.user.id)
-            # Check if Payment model exists
-            from django.apps import apps
-            payment_model = apps.get_model('budgeT', 'Payment')
-            print("Payment model exists:", payment_model)
-
+            print(">>> Attempting to fetch payments for user:", request.user.id)
             payments = Payment.objects.filter(user=request.user)
-            print(f"Found {len(payments)} payments")
+            print(f">>> Found {len(payments)} payments")
+            for p in payments:
+                print(
+                    f">>> Payment: {p.id} - {p.recipient} - ${p.amount} - {p.dueDate}")
             serializer = PaymentSerializer(payments, many=True)
             return Response(serializer.data)
         except Exception as e:
             import traceback
-            print(f"Error fetching payments: {str(e)}")
-            print(traceback.format_exc())  # Print full traceback
+            print(f">>> Error fetching payments: {str(e)}")
+            print(traceback.format_exc())
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     elif request.method == 'POST':
@@ -450,7 +507,3 @@ def payment_detail(request, pk):
     elif request.method == 'DELETE':
         payment.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
-
-
-# filepath: /Users/cris/Proyects/BudgeT/budgeT/urls.py
-# Add these URLs to your urlpatterns

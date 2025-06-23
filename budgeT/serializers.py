@@ -3,24 +3,27 @@ from .models import PlaidAccount, Transaction, Payment
 import datetime
 
 
+class PlaidAccountSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PlaidAccount
+        fields = ['id', 'institution_name', 'account_name', 'account_type', 'mask',
+                  'current_balance', 'available_balance', 'limit', 'last_synced', 'created_at']
+
+
 class TransactionSerializer(serializers.ModelSerializer):
-    # Change to PrimaryKeyRelatedField to ensure we get just the ID
-    plaid_account = serializers.PrimaryKeyRelatedField(read_only=True)
+    # Include bank name directly in the transaction
+    institution_name = serializers.SerializerMethodField()
 
     class Meta:
         model = Transaction
-        fields = ['id', 'transaction_id', 'amount',
-                  'date', 'name', 'category', 'plaid_account']
+        fields = ['id', 'transaction_id', 'plaid_account', 'institution_name',
+                  'amount', 'date', 'name', 'category', 'payment_channel']
 
-
-class PlaidAccountSerializer(serializers.ModelSerializer):
-    transactions = TransactionSerializer(many=True, read_only=True)
-
-    class Meta:
-        model = PlaidAccount
-        fields = ['id', 'institution_name',
-                  'account_type', 'last_synced', 'transactions']
-        # Note: We don't include access_token for security reasons
+    def get_institution_name(self, obj):
+        """Get the institution name directly from the plaid account"""
+        if obj.plaid_account:
+            return obj.plaid_account.institution_name
+        return "Unknown Bank"
 
 
 class PaymentSerializer(serializers.ModelSerializer):

@@ -21,26 +21,132 @@ export default function Payments() {
     frequency: "monthly",
   });
 
-  // Define fetchPayments as a function that can be called from elsewhere in the component
+  // Add this helper function near the top of your component before the return statement
+  const getDaysUntilDue = (dueDate) => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const due = new Date(dueDate);
+    due.setHours(0, 0, 0, 0);
+
+    const diffTime = due - today;
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return diffDays;
+  };
+
+  // Add this debugging code at the top of your component
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    console.log(
+      "Current auth token:",
+      token ? `${token.substring(0, 15)}...` : "No token"
+    );
+
+    // Test auth endpoint directly
+    const testAuth = async () => {
+      try {
+        const token = localStorage.getItem("token");
+        if (!token) {
+          console.log("No token found for verification");
+          return;
+        }
+
+        // The correct way to verify a token with djangorestframework-simplejwt
+        const response = await apiClient.post("/api/token/verify/", { token });
+        console.log("Auth verified successfully");
+      } catch (err) {
+        console.error("Auth verification failed:", err);
+      }
+    };
+
+    testAuth();
+  }, []);
+
+  // Update your fetchPayments function with better date handling
   const fetchPayments = async () => {
     try {
       setLoading(true);
 
+      console.log("Starting to fetch payments");
       const response = await apiClient.get("/api/payments/");
+      console.log("Payments API response:", response.data);
+
       const allPayments = response.data;
-      setPayments(allPayments);
+      console.log("All payments:", allPayments);
 
-      // Filter payments into upcoming and history
+      // Format current date properly to midnight for accurate comparison
       const currentDate = new Date();
-      const upcoming = allPayments.filter(
-        (payment) =>
-          payment.status !== "paid" && new Date(payment.dueDate) >= currentDate
-      );
-      const history = allPayments.filter(
-        (payment) =>
-          payment.status === "paid" || new Date(payment.dueDate) < currentDate
-      );
+      currentDate.setHours(0, 0, 0, 0); // Set to start of the day
+      console.log("Current date for filtering:", currentDate);
 
+      // Add dummy upcoming payments for testing if needed
+      const dummyPayments = [
+        {
+          id: 999,
+          recipient: "Sample Electric Company",
+          amount: 89.99,
+          dueDate: "2025-06-25", // Future date
+          category: "Utilities",
+          description: "Monthly electricity bill",
+          isRecurring: true,
+          frequency: "monthly",
+          status: "pending",
+        },
+        {
+          id: 998,
+          recipient: "Sample Internet Provider",
+          amount: 75.0,
+          dueDate: "2025-06-21", // Very soon
+          category: "Utilities",
+          description: "Internet service",
+          isRecurring: true,
+          frequency: "monthly",
+          status: "pending",
+        },
+        {
+          id: 997,
+          recipient: "Sample Streaming Service",
+          amount: 14.99,
+          dueDate: "2025-06-19", // Today
+          category: "Subscription",
+          description: "Movie streaming",
+          isRecurring: true,
+          frequency: "monthly",
+          status: "pending",
+        },
+      ];
+
+      // Combine real and dummy payments for testing
+      // const combinedPayments = [...allPayments, ...dummyPayments];
+      // Uncomment the line above and use combinedPayments instead of allPayments
+      // if you want to see example data
+
+      // Fix date comparison by parsing dates consistently
+      const upcoming = allPayments.filter((payment) => {
+        // Parse the payment date correctly
+        const dueDate = new Date(payment.dueDate);
+        dueDate.setHours(0, 0, 0, 0); // Set to start of day for fair comparison
+
+        const isPaid = payment.status === "paid";
+        const isDueInFuture = dueDate >= currentDate;
+
+        console.log(
+          `Payment ${
+            payment.id
+          }: isPaid=${isPaid}, isDueInFuture=${isDueInFuture}, dueDate=${dueDate.toISOString()}`
+        );
+
+        return !isPaid && isDueInFuture;
+      });
+
+      console.log("Upcoming payments after filter:", upcoming);
+
+      const history = allPayments.filter((payment) => {
+        const dueDate = new Date(payment.dueDate);
+        dueDate.setHours(0, 0, 0, 0);
+        return payment.status === "paid" || dueDate < currentDate;
+      });
+
+      setPayments(allPayments);
       setUpcomingPayments(upcoming);
       setPaymentHistory(history);
       setError(null);
@@ -439,6 +545,9 @@ export default function Payments() {
                         Due Date
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Countdown
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Recipient
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -456,47 +565,74 @@ export default function Payments() {
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
-                    {upcomingPayments.map((payment) => (
-                      <tr key={payment.id}>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {new Date(payment.dueDate).toLocaleDateString()}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                          {payment.recipient}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {payment.category}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                          $
-                          {typeof payment.amount === "number"
-                            ? payment.amount.toFixed(2)
-                            : payment.amount
-                            ? Number(payment.amount).toFixed(2)
-                            : "0.00"}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <PaymentStatusMenu
-                            payment={payment}
-                            onStatusChange={updatePaymentStatus}
-                          />
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          <button
-                            onClick={() => markAsPaid(payment.id)}
-                            className="text-green-600 hover:text-green-900 mr-3"
-                          >
-                            Mark as Paid
-                          </button>
-                          <button className="text-blue-600 hover:text-blue-900 mr-3">
-                            Edit
-                          </button>
-                          <button className="text-red-600 hover:text-red-900">
-                            Delete
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
+                    {upcomingPayments.map((payment) => {
+                      const daysUntilDue = getDaysUntilDue(payment.dueDate);
+                      const isPriority = daysUntilDue <= 3;
+
+                      return (
+                        <tr
+                          key={payment.id}
+                          className={isPriority ? "bg-yellow-50" : ""}
+                        >
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {new Date(payment.dueDate).toLocaleDateString()}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            {daysUntilDue === 0 ? (
+                              <span className="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">
+                                Due Today!
+                              </span>
+                            ) : daysUntilDue < 0 ? (
+                              <span className="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">
+                                Overdue by {Math.abs(daysUntilDue)} days
+                              </span>
+                            ) : daysUntilDue <= 3 ? (
+                              <span className="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">
+                                {daysUntilDue} days left
+                              </span>
+                            ) : (
+                              <span className="text-sm text-gray-500">
+                                {daysUntilDue} days left
+                              </span>
+                            )}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                            {payment.recipient}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {payment.category}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                            $
+                            {typeof payment.amount === "number"
+                              ? payment.amount.toFixed(2)
+                              : payment.amount
+                              ? Number(payment.amount).toFixed(2)
+                              : "0.00"}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <PaymentStatusMenu
+                              payment={payment}
+                              onStatusChange={updatePaymentStatus}
+                            />
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            <button
+                              onClick={() => markAsPaid(payment.id)}
+                              className="text-green-600 hover:text-green-900 mr-3"
+                            >
+                              Mark as Paid
+                            </button>
+                            <button className="text-blue-600 hover:text-blue-900 mr-3">
+                              Edit
+                            </button>
+                            <button className="text-red-600 hover:text-red-900">
+                              Delete
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               ) : (

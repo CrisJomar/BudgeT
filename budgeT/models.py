@@ -5,10 +5,18 @@ from django.contrib.auth.models import User
 class PlaidAccount(models.Model):
     user = models.ForeignKey(
         User, on_delete=models.CASCADE, related_name="plaid_accounts")
-    access_token = models.CharField(max_length=120, unique=True)
-    item_id = models.CharField(max_length=120, unique=True)
-    institution_name = models.CharField(max_length=120, blank=True, null=True)
-    account_type = models.CharField(max_length=50, blank=True, null=True)
+    access_token = models.CharField(max_length=255)
+    item_id = models.CharField(max_length=255)
+    institution_name = models.CharField(max_length=255, blank=True, null=True)
+    account_name = models.CharField(max_length=255, blank=True, null=True)
+    account_type = models.CharField(max_length=100, blank=True, null=True)
+    mask = models.CharField(max_length=4, blank=True, null=True)
+    current_balance = models.DecimalField(
+        max_digits=12, decimal_places=2, null=True, blank=True)
+    available_balance = models.DecimalField(
+        max_digits=12, decimal_places=2, null=True, blank=True)
+    limit = models.DecimalField(
+        max_digits=12, decimal_places=2, null=True, blank=True)
     last_synced = models.DateTimeField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
